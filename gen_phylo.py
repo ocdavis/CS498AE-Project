@@ -73,6 +73,8 @@ def main():
         ("med",    "phylo_med",         50,        100,         0.10),
     ]
 
+    
+
     rng = np.random.default_rng(args.seed)
 
     for tag, name, n_samples, n_mutations, density in configs:

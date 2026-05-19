@@ -3,19 +3,17 @@ Fischetti and Salvagnin (2011), "A Relax-and-Cut Framework for Gomory
 Mixed-Integer Cuts".
 
 LLM Usage Disclaimer: I implemented the main relax-and-cut framework
-(Algorithm 1), the cut deduplication, the subgradient method with the
+(Algorithm 1), the fast method, the subgradient method with the
 Polyak step-size rule, and initial try at generating rank 1 GMICs, the dynamism check, and the fractionality
-threshold based on the paper. Claude helped debug the implementation
-and adjust the tableau extraction to work with Gurobi's basis
-representation (handling VBasis flags for variables nonbasic at upper
-bound, free / super-basic variables, and equality slacks that can
-appear basic in degenerate LPs), and refactored the inner loop for
-performance (sparse cut pool, vectorized GMIC formula (_gmic_coeff), single-call
-objective updates).
+threshold based on the paper. 
 
-Needed performance adjustments even smaller runs were taking minutes
-as opposed to seconds, and runs the run at an hour now were running at
-over 10.
+Claude used to debug the implementation (after running too long / 
+or outputing gap closure of 0 for things that should not be). Specifically,
+it helped adjust the tableau extraction to work with Gurobi's basis
+representation (e.g. handling VBasis flags for variables nonbasic at upper
+bound, free / "super-basic" variables, and equality slacks that can
+appear basic in degenerate LPs), and refactored the inner loop for
+performance (sparse cut pool data structure and vectorized GMIC formula (_gmic_coeff)).
 """
 
 import gurobipy as gp
@@ -29,10 +27,7 @@ import time
 def _gmic_coeff(a_bar, is_int, f0):
     """Vectorized mixed-integer Gomory cut coefficient formula.
 
-    Applies the standard GMIC coefficient formula (Fischetti and
-    Salvagnin Section 2, eq. 5) elementwise. Expects the tableau row to
-    already be in y-space (i.e. with at-upper-bound complementation
-    applied to a_bar if applicable).
+    Applies the standard GMIC coefficient formula elementwise.
 
     Parameters:
         a_bar: numpy array of tableau row coefficients for the non-basic variables
@@ -223,8 +218,7 @@ def generate_rank1_gmics(model, orig_model, *,
 class CutPool:
     """Sparse cut pool with hash-based deduplication.
 
-    Stores cuts as (row, column, value) triples so the cut matrix M
-    (|pool| by n) can be assembled as a single scipy CSR matrix
+    Stores cuts as (row, column, value) triples so the cut matrix M can be assembled as a single scipy CSR matrix
     """
 
     def __init__(self, n):
@@ -275,9 +269,8 @@ class CutPool:
         """Build or fetch the cached (M, alpha0) representation.
 
         Returns:
-            Tuple (M, alpha0) where M is a scipy.sparse.csr_matrix of
-            shape (|pool|, n) holding cut coefficients, and alpha0 is a
-            numpy array of length |pool| holding cut right-hand sides.
+            Tuple (M, alpha0) where M is a scipy.sparse.csr_matrix  holding cut coefficients, and alpha0 is a
+            numpy array holding cut right-hand sides.
         """
         m = len(self._rhs)
         if self._cache_m == m:
@@ -324,13 +317,12 @@ def relax_and_cut_fast(model, UB, *,
         mu: Polyak step-size scaling factor
         I_max: subgradient iterations per main iteration
         K: cut generation interval inside the subgradient loop
-        verbose: if True, print per-iteration progress.
-        log_interval: print every log_interval subgradient steps.
+        verbose: if True, print per-iteration progress
+        log_interval: print every log_interval subgradient steps
 
     Returns:
-        A Gurobi LP relaxation of model augmented with all pool cuts.
-        Re-optimizing it yields the relax-and-cut bound. Returns None
-        if the initial LP is not optimal.
+        A Gurobi LP relaxation augmented with all pool cuts, or None if
+        the initial LP fails.
     """
     lp_model = model.relax()
     lp_model.setParam('OutputFlag', 0)
@@ -417,8 +409,8 @@ def relax_and_cut_subg(model, UB, *,
         mu0: Initial Polyak step-size scaling factor
         I_max: subgradient iterations per main iteration
         K: cut generation interval inside the subgradient loop
-        verbose: if True, print per-iteration progress.
-        log_interval: print every log_interval subgradient steps.
+        verbose: if True, print per-iteration progress
+        log_interval: print every log_interval subgradient steps
         u_pad_interval: how often to append zero entries to u for cuts
             added since the last padding
         p_avg: window length for the average-improvement check
@@ -536,11 +528,11 @@ def run_1gmi_baseline(mps_filepath, known_opt, gp_env=None):
     optimal basis, adds them all back to the LP, re-solves, and reports
     the percentage integrality gap closed.
 
-    Args:
-        mps_filepath: path to an MPS file containing the MIP.
-        known_opt: best known integer optimal objective value.
-        gp_env: optional pre-configured Gurobi environment. Creates a
-            fresh one if None.
+    Parameters:
+        mps_filepath: path to an MPS file containing the MIP
+        known_opt: best known integer optimal objective value
+        gp_env: optional pre-configured Gurobi environment (Olivia Note: Useful if you are running
+        into licensing issues like I did on certain machines, point it directly to your gurobi.lic)
 
     Returns:
         Percentage gap closed (float), or None if the initial LP fails.

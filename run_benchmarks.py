@@ -19,9 +19,6 @@ import time
 import traceback
 from pathlib import Path
 
-# Set Gurobi license BEFORE importing gurobipy
-os.environ.setdefault("GRB_LICENSE_FILE", r"C:\Users\davisoc\gurobi.lic")
-
 import gurobipy as gp
 from gurobipy import GRB
 
