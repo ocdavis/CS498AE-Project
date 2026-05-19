@@ -1,4 +1,4 @@
-# CS598AE Project (Relax-and-Cut methods for GMICs Reproduction + Extension)
+# CS498AE Project (Relax-and-Cut methods for GMICs Reproduction + Extension)
 
 A Python + Gurobi implementation of the relax-and-cut framework for Gomory mixed-integer cuts, based on:
 
