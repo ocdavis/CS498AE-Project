@@ -1,4 +1,4 @@
-# Olivia Davis CS598AE Project (Relax-and-Cut methods for GMICs / Comp Bio Extension)
+# CS598AE Project (Relax-and-Cut methods for GMICs Reproduction + Extension)
 
 A Python + Gurobi implementation of the relax-and-cut framework for Gomory mixed-integer cuts, based on:
 
